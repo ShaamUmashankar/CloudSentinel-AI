@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Knowledge Base Management{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-journal-text text-info me-2"></i>Security Knowledge-Base Management</h2>
+    <p class="text-secondary mb-0 small">Curated cloud security playbooks, MITRE ATT&amp;CK mappings, and FAISS vector index status.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-cyber-primary btn-sm" id="btnReindex" onclick="reindexKnowledgeBase()">
+      <i class="bi bi-arrow-repeat me-1"></i>Rebuild FAISS Vector Index
+    </button>
+  </div>
+</div>
+
+<!-- Vector Telemetry Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-info">{{ rag_status.knowledge_docs_count }}</div>
+        <div class="stat-label">Security Playbooks</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(0, 242, 254, 0.15); color: #00f2fe;">
+        <i class="bi bi-file-earmark-medical"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-success">{{ rag_status.total_indexed_chunks }}</div>
+        <div class="stat-label">Indexed Vector Chunks</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(0, 230, 118, 0.15); color: #00e676;">
+        <i class="bi bi-diagram-2"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-warning">Cosine L2</div>
+        <div class="stat-label">Vector Metric</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(255, 171, 0, 0.15); color: #ffab00;">
+        <i class="bi bi-hash"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-primary">FAISS</div>
+        <div class="stat-label">Vector Engine</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(79, 172, 254, 0.15); color: #4facfe;">
+        <i class="bi bi-database"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Search Knowledge Chunks -->
+<div class="cyber-card p-3 mb-4">
+  <div class="input-group">
+    <span class="input-group-text bg-transparent border-secondary border-opacity-25 text-secondary">
+      <i class="bi bi-search"></i>
+    </span>
+    <input type="text" id="kbSearchInput" class="form-control form-control-cyber" placeholder="Search playbook titles, MITRE techniques, or incident remediation steps...">
+  </div>
+</div>
+
+<!-- Knowledge Articles Grid -->
+<div class="row g-4" id="kbCardsContainer">
+  {% if docs %}
+    {% for doc in docs %}
+    <div class="col-md-6 col-xl-4 kb-card-item">
+      <div class="cyber-card h-100 p-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge bg-info bg-opacity-25 text-info small">{{ doc.category }}</span>
+          <span class="badge bg-secondary bg-opacity-25 text-light small">{{ doc.chunk_count }} Chunks</span>
+        </div>
+        <h5 class="fw-bold mb-2 doc-title">{{ doc.title }}</h5>
+        <div class="text-muted small mb-3">
+          <i class="bi bi-filetype-md me-1"></i>File: <code>{{ doc.source }}</code>
+        </div>
+        <div class="p-3 rounded small text-secondary mb-3 flex-grow-1" style="background: rgba(0,0,0,0.25); max-height: 120px; overflow-y: hidden;">
+          {{ doc.content[:220] }}...
+        </div>
+        <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-10">
+          <small class="text-muted">Indexed: {{ doc.indexed_at[:10] }}</small>
+          <a href="/assistant?query={{ doc.title|urlencode }}" class="btn btn-cyber-outline btn-sm">
+            <i class="bi bi-robot me-1"></i>Query in RAG
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="col-12 text-center text-muted py-5">
+      No knowledge documents indexed. Click "Rebuild FAISS Vector Index" above.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function reindexKnowledgeBase() {
+  const btn = document.getElementById('btnReindex');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Rebuilding Index...';
+
+  try {
+    const res = await fetch('/api/knowledge-base/reindex', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`FAISS Vector Index rebuilt: ${data.result.chunk_count} chunks indexed across ${data.result.document_count} playbooks!`, 'success');
+      setTimeout(() => window.location.reload(), 1200);
+    } else {
+      showToast(`Reindex failed: ${data.error}`, 'danger');
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Rebuild FAISS Vector Index';
+  }
+}
+
+document.getElementById('kbSearchInput').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  const items = document.querySelectorAll('.kb-card-item');
+  items.forEach(card => {
+    const text = card.innerText.toLowerCase();
+    card.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

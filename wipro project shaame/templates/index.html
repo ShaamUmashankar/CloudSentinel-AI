@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Platform Overview{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+  <!-- Hero Section -->
+  <div class="col-12">
+    <div class="cyber-card p-4 p-lg-5" style="background: linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.9));">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary bg-opacity-25 text-info px-3 py-2 border border-info border-opacity-25 rounded-pill">
+              <i class="bi bi-shield-check me-1"></i>Next-Gen Autonomous Cloud Defense
+            </span>
+            <span class="badge bg-success bg-opacity-25 text-success px-3 py-2 border border-success border-opacity-25 rounded-pill">
+              v1.0.0 Ready
+            </span>
+          </div>
+          <h1 class="display-5 fw-bold mb-3" style="letter-spacing: -1px;">
+            Intelligent Cloud Threat Detection &amp; Autonomous Incident Response
+          </h1>
+          <p class="lead text-secondary mb-4" style="font-size: 1.1rem; line-height: 1.6;">
+            <strong>CloudSentinel AI</strong> unifies <strong>Cloud Engineering</strong>, <strong>Data Engineering</strong>, 
+            <strong>Machine Learning</strong>, and <strong>Generative AI (RAG)</strong> into a live operational SOC platform. 
+            It ingests AWS CloudTrail logs, runs Isolation Forest anomaly detection, correlates threat rules, and uses a local 
+            vector assistant to explain alerts and propose assisted containment actions.
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="/dashboard" class="btn btn-cyber-primary">
+              <i class="bi bi-speedometer2 me-1"></i>Launch Security Dashboard
+            </a>
+            <button class="btn btn-cyber-outline" onclick="loadSyntheticSampleLogs()">
+              <i class="bi bi-cloud-arrow-down me-1"></i>Ingest Demonstration Logs
+            </button>
+            <a href="/assistant" class="btn btn-cyber-outline">
+              <i class="bi bi-robot me-1"></i>Open GenAI Assistant
+            </a>
+          </div>
+        </div>
+
+        <div class="col-lg-4 text-center">
+          <div class="p-4 rounded-3" style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color);">
+            <div class="text-uppercase text-muted small fw-bold mb-2">Live Telemetry Snapshot</div>
+            <div class="row g-2 text-start">
+              <div class="col-6">
+                <div class="p-2 border border-secondary border-opacity-10 rounded">
+                  <div class="text-muted small">Ingested Events</div>
+                  <div class="fs-4 fw-bold text-info">{{ stats.events }}</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="p-2 border border-secondary border-opacity-10 rounded">
+                  <div class="text-muted small">Active Incidents</div>
+                  <div class="fs-4 fw-bold text-danger">{{ stats.incidents }}</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="p-2 border border-secondary border-opacity-10 rounded">
+                  <div class="text-muted small">Vector Runbooks</div>
+                  <div class="fs-4 fw-bold text-success">{{ stats.kb_docs }} Docs</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="p-2 border border-secondary border-opacity-10 rounded">
+                  <div class="text-muted small">ML Engine</div>
+                  <div class="fs-4 fw-bold text-warning">IsolationForest</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Four Domains Breakdown Cards -->
+  <div class="col-12">
+    <h3 class="fw-bold mb-3"><i class="bi bi-diagram-3 text-info me-2"></i>Four-Domain Architecture Integration</h3>
+  </div>
+
+  <div class="col-md-6 col-xl-3">
+    <div class="cyber-card h-100 p-4">
+      <div class="stat-icon mb-3" style="background: rgba(79, 172, 254, 0.15); color: #4facfe;">
+        <i class="bi bi-cloud-check-fill"></i>
+      </div>
+      <h5 class="fw-bold mb-2">Cloud Engineering</h5>
+      <p class="text-secondary small mb-3">
+        AWS CloudTrail log ingestion architecture, IAM permission evaluation, and simulated containment (Session revocation, DenyAll quarantine, VPC NACL).
+      </p>
+      <ul class="text-muted small ps-3 mb-0">
+        <li>CloudTrail event mapping</li>
+        <li>Least-privilege IAM guardrails</li>
+        <li>Simulated containment actions</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-xl-3">
+    <div class="cyber-card h-100 p-4">
+      <div class="stat-icon mb-3" style="background: rgba(0, 230, 118, 0.15); color: #00e676;">
+        <i class="bi bi-funnel-fill"></i>
+      </div>
+      <h5 class="fw-bold mb-2">Data Engineering</h5>
+      <p class="text-secondary small mb-3">
+        High-performance Pandas ETL pipeline for cleaning, timestamp standardization, deduplication, and PySpark Glue job blueprints.
+      </p>
+      <ul class="text-muted small ps-3 mb-0">
+        <li>JSON &amp; CSV log normalizer</li>
+        <li>Batch &amp; DB deduplication</li>
+        <li>ETL summary accounting</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-xl-3">
+    <div class="cyber-card h-100 p-4">
+      <div class="stat-icon mb-3" style="background: rgba(255, 171, 0, 0.15); color: #ffab00;">
+        <i class="bi bi-cpu-fill"></i>
+      </div>
+      <h5 class="fw-bold mb-2">Machine Learning</h5>
+      <p class="text-secondary small mb-3">
+        Scikit-learn Isolation Forest anomaly detector extracting 10 security feature dimensions with SHAP-like explainable feature attribution.
+      </p>
+      <ul class="text-muted small ps-3 mb-0">
+        <li>Continuous anomaly scores</li>
+        <li>Explainable contribution %</li>
+        <li>Configurable alert thresholds</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-xl-3">
+    <div class="cyber-card h-100 p-4">
+      <div class="stat-icon mb-3" style="background: rgba(121, 40, 202, 0.15); color: #a855f7;">
+        <i class="bi bi-robot"></i>
+      </div>
+      <h5 class="fw-bold mb-2">Generative AI (RAG)</h5>
+      <p class="text-secondary small mb-3">
+        Retrieval-Augmented Generation assistant leveraging local FAISS vector search over MITRE ATT&amp;CK and AWS security playbooks.
+      </p>
+      <ul class="text-muted small ps-3 mb-0">
+        <li>FAISS vector index</li>
+        <li>Gemini API or Fallback mode</li>
+        <li>Evidence-backed citations</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Implementation Matrix Table -->
+  <div class="col-12">
+    <div class="cyber-card">
+      <div class="cyber-card-header">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-layers text-info me-2"></i>System Components: Local vs Cloud Status</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-cyber">
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Locally Implemented (Operational)</th>
+              <th>AWS Integration Mode</th>
+              <th>Production Cloud Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong class="text-info">Log Ingestion</strong></td>
+              <td>JSON / CSV upload + validation + REST API</td>
+              <td><span class="badge bg-success bg-opacity-25 text-success">Local Standalone Active</span></td>
+              <td>AWS S3 bucket + EventBridge + API Gateway</td>
+            </tr>
+            <tr>
+              <td><strong class="text-info">ETL Pipeline</strong></td>
+              <td>Pandas Pipeline with deduplication &amp; normalization</td>
+              <td><span class="badge bg-info bg-opacity-25 text-info">PySpark Module Available</span></td>
+              <td>AWS Glue Job (4.0) + Amazon Redshift DW</td>
+            </tr>
+            <tr>
+              <td><strong class="text-info">Threat Detection</strong></td>
+              <td>Isolation Forest + Rule Correlation Engine</td>
+              <td><span class="badge bg-success bg-opacity-25 text-success">Local ML Engine Trained</span></td>
+              <td>Amazon SageMaker Real-Time Endpoint</td>
+            </tr>
+            <tr>
+              <td><strong class="text-info">RAG Assistant</strong></td>
+              <td>FAISS vector store + 6 Curated security playbooks</td>
+              <td><span class="badge bg-warning bg-opacity-25 text-warning">Fallback Demo Engine Active</span></td>
+              <td>AWS Bedrock (Claude/Titan) or Google Gemini</td>
+            </tr>
+            <tr>
+              <td><strong class="text-info">Containment Actions</strong></td>
+              <td>Safety-governed simulated response with audit trail</td>
+              <td><span class="badge bg-secondary bg-opacity-25 text-light">Simulation Guard Active</span></td>
+              <td>AWS Lambda + Step Functions (SOAR)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

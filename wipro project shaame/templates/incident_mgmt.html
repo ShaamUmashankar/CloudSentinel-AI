@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Incident Management Queue{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-clipboard2-pulse text-info me-2"></i>Incident Management &amp; Triage Queue</h2>
+    <p class="text-secondary mb-0 small">Analyst workflow console for incident classification, status updates, and containment simulation.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge bg-danger bg-opacity-25 text-danger px-3 py-2">
+      {{ incidents|selectattr('status', 'equalto', 'Open')|list|length }} Open Incidents
+    </span>
+    <span class="badge bg-warning bg-opacity-25 text-warning px-3 py-2">
+      {{ incidents|selectattr('status', 'equalto', 'Investigating')|list|length }} In Investigation
+    </span>
+  </div>
+</div>
+
+<!-- Queue Filter Bar -->
+<div class="cyber-card p-3 mb-4">
+  <div class="row g-2 align-items-center">
+    <div class="col-md-5">
+      <input type="text" id="queueSearch" class="form-control form-control-cyber" placeholder="Search incident code, title, or principal...">
+    </div>
+    <div class="col-md-3">
+      <select id="queueStatusFilter" class="form-select form-select-cyber">
+        <option value="">All Triage States</option>
+        <option value="Open">Open</option>
+        <option value="Investigating">Investigating</option>
+        <option value="Resolved">Resolved</option>
+        <option value="False Positive">False Positive</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select id="queueSevFilter" class="form-select form-select-cyber">
+        <option value="">All Severities</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-cyber-outline btn-sm w-100" onclick="resetQueueFilters()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- Incident Management Table -->
+<div class="cyber-card">
+  <div class="table-responsive">
+    <table class="table table-cyber" id="mgmtTable">
+      <thead>
+        <tr>
+          <th>Incident Code</th>
+          <th>Severity</th>
+          <th>Threat Title</th>
+          <th>Principal &amp; IP</th>
+          <th>ML Score</th>
+          <th>Current Status</th>
+          <th>Triage Action</th>
+          <th>Simulated Response</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if incidents %}
+          {% for inc in incidents %}
+          <tr data-status="{{ inc.status }}" data-sev="{{ inc.severity }}">
+            <td>
+              <a href="/incident/{{ inc.id }}" class="text-decoration-none">
+                <code class="cyber-code">{{ inc.incident_code }}</code>
+              </a>
+            </td>
+            <td>
+              <span class="badge {% if inc.severity == 'CRITICAL' %}badge-critical{% elif inc.severity == 'HIGH' %}badge-high{% elif inc.severity == 'MEDIUM' %}badge-medium{% else %}badge-low{% endif %}">
+                {{ inc.severity }}
+              </span>
+            </td>
+            <td>
+              <div class="fw-bold">{{ inc.title }}</div>
+              <div class="text-muted small">{{ inc.event_time }}</div>
+            </td>
+            <td>
+              <div class="text-info">{{ inc.principal }}</div>
+              <code class="cyber-code small">{{ inc.source_ip }}</code>
+            </td>
+            <td><span class="fw-bold text-danger">{{ inc.ml_anomaly_score }}</span></td>
+            <td>
+              <select class="form-select form-select-cyber form-select-sm" style="width: 140px;" onchange="updateIncidentStatus({{ inc.id }}, this.value)">
+                <option value="Open" {% if inc.status == 'Open' %}selected{% endif %}>Open</option>
+                <option value="Investigating" {% if inc.status == 'Investigating' %}selected{% endif %}>Investigating</option>
+                <option value="Resolved" {% if inc.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                <option value="False Positive" {% if inc.status == 'False Positive' %}selected{% endif %}>False Positive</option>
+              </select>
+            </td>
+            <td>
+              <a href="/incident/{{ inc.id }}" class="btn btn-cyber-outline btn-sm py-1 px-2" title="View Full Dossier">
+                <i class="bi bi-eye me-1"></i>Dossier
+              </a>
+            </td>
+            <td>
+              <div class="dropdown">
+                <button class="btn btn-cyber-danger btn-sm py-1 px-2 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                  <i class="bi bi-shield-shaded me-1"></i>Simulate
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark">
+                  <li><a class="dropdown-item" href="javascript:void(0)" onclick="promptSimulatedAction({{ inc.id }}, 'REVOKE_SESSION', 'Revoke Active IAM Session')">Revoke Active IAM Session</a></li>
+                  <li><a class="dropdown-item" href="javascript:void(0)" onclick="promptSimulatedAction({{ inc.id }}, 'QUARANTINE_ROLE', 'Attach DenyAll Quarantine Policy')">Attach DenyAll Policy</a></li>
+                  <li><a class="dropdown-item" href="javascript:void(0)" onclick="promptSimulatedAction({{ inc.id }}, 'ROTATE_KEY', 'Rotate AWS Access Key')">Rotate Access Key</a></li>
+                  <li><a class="dropdown-item" href="javascript:void(0)" onclick="promptSimulatedAction({{ inc.id }}, 'ISOLATE_IP', 'Isolate Attacking IP (NACL)')">Isolate IP via NACL</a></li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-5">
+              No incidents in triage queue. Ingest logs from the <a href="/ingestion" class="text-info">Ingestion page</a>.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const qSearch = document.getElementById('queueSearch');
+const qStatus = document.getElementById('queueStatusFilter');
+const qSev = document.getElementById('queueSevFilter');
+const qRows = document.querySelectorAll('#mgmtTable tbody tr');
+
+function applyQueueFilter() {
+  const query = qSearch.value.toLowerCase().trim();
+  const selStatus = qStatus.value;
+  const selSev = qSev.value;
+
+  qRows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    const st = row.getAttribute('data-status');
+    const sv = row.getAttribute('data-sev');
+
+    const matchQ = !query || text.includes(query);
+    const matchSt = !selStatus || st === selStatus;
+    const matchSv = !selSev || sv === selSev;
+
+    if (matchQ && matchSt && matchSv) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+qSearch.addEventListener('input', applyQueueFilter);
+qStatus.addEventListener('change', applyQueueFilter);
+qSev.addEventListener('change', applyQueueFilter);
+
+function resetQueueFilters() {
+  qSearch.value = '';
+  qStatus.value = '';
+  qSev.value = '';
+  applyQueueFilter();
+}
+</script>
+{% endblock %}

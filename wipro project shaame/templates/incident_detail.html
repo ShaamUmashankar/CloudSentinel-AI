@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Incident {{ incident.incident_code }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb & Top Bar -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <a href="/threats" class="text-secondary text-decoration-none small">&larr; Back to Threats</a>
+      <span class="text-muted small">&bull;</span>
+      <span class="text-info small fw-bold">Incident Dossier</span>
+    </div>
+    <h2 class="fw-bold mb-0">
+      <span class="badge {% if incident.severity == 'CRITICAL' %}badge-critical{% elif incident.severity == 'HIGH' %}badge-high{% elif incident.severity == 'MEDIUM' %}badge-medium{% else %}badge-low{% endif %} me-2">
+        {{ incident.severity }}
+      </span>
+      {{ incident.title }}
+    </h2>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <a href="/assistant?incident_id={{ incident.id }}" class="btn btn-cyber-primary btn-sm">
+      <i class="bi bi-robot me-1"></i>Analyze with GenAI Assistant
+    </a>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Left Column: Incident Telemetry & ML Scoring -->
+  <div class="col-lg-8">
+    <!-- Telemetry Card -->
+    <div class="cyber-card p-4 mb-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-hdd-stack text-info me-2"></i>Observed CloudTrail Telemetry</h5>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Incident Code</div>
+            <div class="fw-bold"><code class="cyber-code">{{ incident.incident_code }}</code></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Event Timestamp (UTC)</div>
+            <div class="fw-bold">{{ incident.event_time }}</div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Invoking Principal Identity</div>
+            <div class="fw-bold text-info">{{ incident.principal }}</div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Source IP Address</div>
+            <div class="fw-bold"><code class="cyber-code">{{ incident.source_ip }}</code></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <h6 class="fw-bold text-secondary mb-2">SOC Threat Summary:</h6>
+        <p class="text-light small p-3 rounded" style="background: rgba(0,0,0,0.3); border-left: 3px solid var(--accent-cyan);">
+          {{ incident.description }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Machine Learning Anomaly Attribution Card -->
+    <div class="cyber-card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-cpu text-warning me-2"></i>Machine Learning Anomaly Attribution</h5>
+        <span class="badge bg-warning bg-opacity-25 text-warning">Isolation Forest (Scikit-Learn)</span>
+      </div>
+
+      <div class="row align-items-center mb-4">
+        <div class="col-sm-4 text-center">
+          <div class="display-5 fw-bold text-danger mb-1">{{ incident.ml_anomaly_score }}</div>
+          <div class="text-muted small text-uppercase">Anomaly Score (0.0 - 1.0)</div>
+        </div>
+        <div class="col-sm-8">
+          <div class="mb-2 d-flex justify-content-between small">
+            <span class="text-secondary">Risk Threshold: 0.65</span>
+            <span class="fw-bold text-danger">Exceeded Threshold by {{ ((incident.ml_anomaly_score - 0.65) * 100)|round|int }}%</span>
+          </div>
+          <div class="progress" style="height: 12px; background: rgba(255,255,255,0.08); border-radius: 6px;">
+            <div class="progress-bar bg-danger" style="width: {{ incident.ml_anomaly_score * 100 }}%"></div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="fw-bold text-secondary mb-3">Why This Event Was Flagged (Feature Contributions):</h6>
+      <div class="d-flex flex-column gap-2">
+        {% if incident.evidence and incident.evidence.feature_contributions %}
+          {% for feat in incident.evidence.feature_contributions %}
+          <div class="p-2 px-3 rounded d-flex justify-content-between align-items-center" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-arrow-up-right-circle text-danger"></i>
+              <span class="small fw-semibold text-light">{{ feat.description }}</span>
+            </div>
+            <span class="badge bg-danger bg-opacity-25 text-danger">+{{ feat.percentage }}%</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="p-2 px-3 rounded d-flex justify-content-between align-items-center" style="background: rgba(0,0,0,0.25);">
+            <span class="small text-secondary">{{ incident.risk_factors }}</span>
+            <span class="badge bg-danger bg-opacity-25 text-danger">+100%</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Raw CloudTrail JSON Payload -->
+    <div class="cyber-card p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-code text-info me-2"></i>Raw CloudTrail JSON Event</h5>
+        <button class="btn btn-cyber-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('rawPayloadCode').innerText); showToast('JSON copied to clipboard', 'info');">
+          <i class="bi bi-clipboard me-1"></i>Copy JSON
+        </button>
+      </div>
+      <pre class="cyber-pre mb-0" id="rawPayloadCode"><code>{{ incident.evidence.raw_event | tojson(indent=2) if incident.evidence and incident.evidence.raw_event else "{}" }}</code></pre>
+    </div>
+  </div>
+
+  <!-- Right Column: Triage Status, Simulated Containment, Notes -->
+  <div class="col-lg-4">
+    <!-- Status Changer -->
+    <div class="cyber-card p-4 mb-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-flag text-info me-2"></i>Incident Triage State</h6>
+      <div class="mb-3">
+        <label class="form-label text-muted small">Current Status:</label>
+        <select class="form-select form-select-cyber" id="statusSelect" onchange="updateIncidentStatus({{ incident.id }}, this.value)">
+          <option value="Open" {% if incident.status == 'Open' %}selected{% endif %}>Open</option>
+          <option value="Investigating" {% if incident.status == 'Investigating' %}selected{% endif %}>Investigating</option>
+          <option value="Resolved" {% if incident.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+          <option value="False Positive" {% if incident.status == 'False Positive' %}selected{% endif %}>False Positive</option>
+        </select>
+      </div>
+      <div class="text-muted small">
+        <i class="bi bi-clock me-1"></i>Updated: {{ incident.updated_at }}
+      </div>
+    </div>
+
+    <!-- Simulated Autonomous Containment Actions -->
+    <div class="cyber-card p-4 mb-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-shield-shaded text-danger me-2"></i>Simulated Containment</h6>
+        <span class="badge bg-warning bg-opacity-25 text-warning small">Assisted Mode</span>
+      </div>
+      <p class="text-secondary small mb-3">
+        Select a response action. A safety confirmation modal will verify parameters before testing simulation execution.
+      </p>
+
+      <div class="d-grid gap-2">
+        <button class="btn btn-cyber-danger btn-sm text-start" onclick="promptSimulatedAction({{ incident.id }}, 'REVOKE_SESSION', 'Revoke Active IAM Session')">
+          <i class="bi bi-person-x-fill me-1"></i>Revoke Active IAM Session
+        </button>
+
+        <button class="btn btn-cyber-danger btn-sm text-start" onclick="promptSimulatedAction({{ incident.id }}, 'QUARANTINE_ROLE', 'Attach DenyAll Quarantine Policy')">
+          <i class="bi bi-lock-fill me-1"></i>Attach DenyAll Policy
+        </button>
+
+        <button class="btn btn-cyber-danger btn-sm text-start" onclick="promptSimulatedAction({{ incident.id }}, 'ROTATE_KEY', 'Rotate AWS Access Key')">
+          <i class="bi bi-key-fill me-1"></i>Rotate &amp; Deactivate Access Key
+        </button>
+
+        <button class="btn btn-cyber-danger btn-sm text-start" onclick="promptSimulatedAction({{ incident.id }}, 'ISOLATE_IP', 'Isolate Attacking IP (NACL Deny)')">
+          <i class="bi bi-slash-circle-fill me-1"></i>Isolate Source IP via VPC NACL
+        </button>
+
+        <button class="btn btn-cyber-outline btn-sm text-start" onclick="promptSimulatedAction({{ incident.id }}, 'RESTORE_LOGGING', 'Restart CloudTrail Logging')">
+          <i class="bi bi-arrow-repeat me-1"></i>Restart CloudTrail Trail
+        </button>
+      </div>
+
+      <!-- Past Response Actions History -->
+      {% if incident.actions %}
+      <div class="mt-4 pt-3 border-top border-secondary border-opacity-10">
+        <h6 class="fw-bold small text-muted mb-2">Executed Containment Log:</h6>
+        {% for act in incident.actions %}
+        <div class="p-2 mb-2 rounded small" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);">
+          <div class="d-flex justify-content-between fw-bold text-success">
+            <span>{{ act.action_name }}</span>
+            <span class="badge bg-success bg-opacity-25 text-success">Simulated</span>
+          </div>
+          <div class="text-secondary" style="font-size: 0.78rem;">{{ act.details }}</div>
+          <div class="text-muted" style="font-size: 0.72rem;">{{ act.timestamp }} by {{ act.performed_by }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Analyst Notes Section -->
+    <div class="cyber-card p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-journal-text text-info me-2"></i>Analyst Investigation Notes</h6>
+      
+      <form id="noteForm" class="mb-3">
+        <div class="mb-2">
+          <textarea id="noteInput" class="form-control form-control-cyber small" rows="3" placeholder="Enter findings, ticket references, or triage notes..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-cyber-primary btn-sm w-100">
+          <i class="bi bi-plus-circle me-1"></i>Add Note
+        </button>
+      </form>
+
+      <div class="d-flex flex-column gap-2" id="notesList">
+        {% if incident.notes %}
+          {% for n in incident.notes %}
+          <div class="p-2 rounded small" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
+              <span class="text-info fw-bold">{{ n.author }}</span>
+              <span>{{ n.created_at }}</span>
+            </div>
+            <div class="text-light">{{ n.note }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted small text-center py-2" id="noNotesPlaceholder">No analyst notes recorded yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('noteForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const noteInput = document.getElementById('noteInput');
+  const noteText = noteInput.value.trim();
+  if (!noteText) return;
+
+  try {
+    const res = await fetch('/api/incidents/{{ incident.id }}/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: noteText, author: 'SOC_Analyst' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Analyst note saved', 'success');
+      noteInput.value = '';
+      setTimeout(() => window.location.reload(), 600);
+    } else {
+      showToast(`Error: ${data.error}`, 'danger');
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'danger');
+  }
+});
+</script>
+{% endblock %}

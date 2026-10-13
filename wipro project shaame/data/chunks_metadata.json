@@ -1,0 +1,205 @@
+[
+  {
+    "chunk_id": "aws_iam_privilege_escalation.md_0",
+    "document_title": "AWS IAM Security & Privilege Escalation Mitigation Guide",
+    "section_title": "AWS IAM Security & Privilege Escalation Mitigation Guide - AWS IAM Security & Privilege Escalation Mitigation Guide",
+    "source_file": "aws_iam_privilege_escalation.md",
+    "text": "# AWS IAM Security & Privilege Escalation Mitigation Guide"
+  },
+  {
+    "chunk_id": "aws_iam_privilege_escalation.md_1",
+    "document_title": "AWS IAM Security & Privilege Escalation Mitigation Guide",
+    "section_title": "AWS IAM Security & Privilege Escalation Mitigation Guide - 1. Threat Overview & MITRE ATT&CK Mapping",
+    "source_file": "aws_iam_privilege_escalation.md",
+    "text": "## 1. Threat Overview & MITRE ATT&CK Mapping\n- **Technique ID**: T1078 (Valid Accounts), T1098 (Account Manipulation), T1484 (Domain Policy Modification)\n- **Category**: Privilege Escalation & Persistence\n- **Cloud Environment**: Amazon Web Services (AWS) Identity and Access Management (IAM)\n\nPrivilege escalation occurs when an adversary gains unauthorized access to higher privileges than originally granted. In AWS environments, attackers frequently target IAM credentials (access keys, console passwords, or assumed role tokens) to grant themselves administrator privileges, create backdoor credentials, or circumvent organizational SCPs (Service Control Policies)."
+  },
+  {
+    "chunk_id": "aws_iam_privilege_escalation.md_2",
+    "document_title": "AWS IAM Security & Privilege Escalation Mitigation Guide",
+    "section_title": "AWS IAM Security & Privilege Escalation Mitigation Guide - 2. Key Suspicious Indicators and API Signatures",
+    "source_file": "aws_iam_privilege_escalation.md",
+    "text": "## 2. Key Suspicious Indicators and API Signatures\n1. **`AttachUserPolicy` / `AttachRolePolicy`**:\n   - Attackers attaching `arn:aws:iam::aws:policy/AdministratorAccess` or custom wildcard (`\"Action\": \"*\"`, `\"Resource\": \"*\"`) policies to unprivileged IAM users or roles.\n   - Performed by an identity that does not belong to the Cloud Platform or DevOps Admin groups.\n2. **`PutUserPolicy` / `PutRolePolicy`**:\n   - Injection of inline policies containing wildcard permissions directly onto an entity.\n3. **`CreateAccessKey`**:\n   - Generating new programmatic access keys for a different existing user (e.g., target victim admin user), creating secondary persistence.\n4. **`CreateLoginProfile` / `UpdateLoginProfile`**:\n   - Activating AWS Management Console password access for accounts that previously only had API/CLI access.\n5. **`AssumeRole` with Elevated Session**:\n   - Assuming privileged roles across accounts or within the same account from unusual external IP addresses or anomalous user agents (e.g., Python `botocore`, Kali Linux tools)."
+  },
+  {
+    "chunk_id": "aws_iam_privilege_escalation.md_3",
+    "document_title": "AWS IAM Security & Privilege Escalation Mitigation Guide",
+    "section_title": "AWS IAM Security & Privilege Escalation Mitigation Guide - 3. Investigation Workflow",
+    "source_file": "aws_iam_privilege_escalation.md",
+    "text": "## 3. Investigation Workflow\n1. Verify the identity of the principal invoking the IAM action (`userIdentity.arn` in CloudTrail).\n2. Check the source IP address (`sourceIPAddress`) against known corporate CIDRs, VPN gateways, and threat intelligence feeds.\n3. Review CloudWatch metrics for subsequent API calls made by the modified principal.\n4. Inspect whether MFA (`userIdentity.sessionContext.attributes.mfaAuthenticated`) was active during the request.\n5. Check if the affected user identity had any recent anomalous failed login attempts (`ConsoleLogin` failure)."
+  },
+  {
+    "chunk_id": "aws_iam_privilege_escalation.md_4",
+    "document_title": "AWS IAM Security & Privilege Escalation Mitigation Guide",
+    "section_title": "AWS IAM Security & Privilege Escalation Mitigation Guide - 4. Recommended Containment & Remediation Actions",
+    "source_file": "aws_iam_privilege_escalation.md",
+    "text": "## 4. Recommended Containment & Remediation Actions\n1. **Quarantine the Principal**:\n   - Attach an explicit Deny policy immediately to halt all active actions:\n   ```json\n   {\n     \"Version\": \"2012-10-17\",\n     \"Statement\": [\n       {\n         \"Effect\": \"Deny\",\n         \"Action\": \"*\",\n         \"Resource\": \"*\"\n       }\n     ]\n   }\n   ```\n2. **Revoke Active IAM Sessions**:\n   - Apply an inline policy invalidating sessions issued before the incident timestamp (`aws:CurrentTime` vs `aws:TokenIssueTime`).\n3. **Deactivate and Rotate Credentials**:\n   - Deactivate all active access keys: `aws iam update-access-key --access-key-id <KEY_ID> --status Inactive --user-name <USER>`.\n   - Force console password reset and invalidate active sessions.\n4. **Audit and Rollback Permissions**:\n   - Detach unauthorized policies: `aws iam detach-user-policy --user-name <USER> --policy-arn <POLICY_ARN>`.\n   - Remove unauthorized inline policies."
+  },
+  {
+    "chunk_id": "brute_force_credential_stuffing.md_0",
+    "document_title": "Suspicious Authentication & Credential Stuffing Investigation Guide",
+    "section_title": "Suspicious Authentication & Credential Stuffing Investigation Guide - Suspicious Authentication & Credential Stuffing Investigation Guide",
+    "source_file": "brute_force_credential_stuffing.md",
+    "text": "# Suspicious Authentication & Credential Stuffing Investigation Guide"
+  },
+  {
+    "chunk_id": "brute_force_credential_stuffing.md_1",
+    "document_title": "Suspicious Authentication & Credential Stuffing Investigation Guide",
+    "section_title": "Suspicious Authentication & Credential Stuffing Investigation Guide - 1. Threat Overview & MITRE ATT&CK Mapping",
+    "source_file": "brute_force_credential_stuffing.md",
+    "text": "## 1. Threat Overview & MITRE ATT&CK Mapping\n- **Technique ID**: T1110 (Brute Force), T1110.003 (Password Spraying), T1110.004 (Credential Stuffing)\n- **Category**: Initial Access & Credential Access\n- **Cloud Environment**: AWS IAM Console & Identity Center (SSO)\n\nAdversaries attempt repeated programmatic or console authentications against AWS accounts to identify valid passwords or credentials leaked from third-party breaches. Credential stuffing involves testing lists of compromised username/password pairs, while password spraying attempts common passwords against many user accounts to bypass lockout policies."
+  },
+  {
+    "chunk_id": "brute_force_credential_stuffing.md_2",
+    "document_title": "Suspicious Authentication & Credential Stuffing Investigation Guide",
+    "section_title": "Suspicious Authentication & Credential Stuffing Investigation Guide - 2. Key Suspicious Indicators and Event Signatures",
+    "source_file": "brute_force_credential_stuffing.md",
+    "text": "## 2. Key Suspicious Indicators and Event Signatures\n1. **Consecutive `ConsoleLogin` Failures**:\n   - Multiple `errorMessage: Failed authentication` records originating from the same IP address or across multiple user identities within a brief window (e.g. 5 failures within 3 minutes).\n2. **Geographic and Network Anomalies**:\n   - Authentication attempts from unusual autonomous system numbers (ASNs), known Tor exit nodes, residential proxies, or foreign countries.\n3. **Root Account Targeting**:\n   - `ConsoleLogin` failure for `userIdentity.type == \"Root\"`. Root login attempts without MFA are considered High/Critical priority events.\n4. **Sudden Login Following Multiple Failures**:\n   - A sequence of 4+ failed `ConsoleLogin` events followed immediately by a successful `ConsoleLogin` from the same external IP indicates probable credential breach."
+  },
+  {
+    "chunk_id": "brute_force_credential_stuffing.md_3",
+    "document_title": "Suspicious Authentication & Credential Stuffing Investigation Guide",
+    "section_title": "Suspicious Authentication & Credential Stuffing Investigation Guide - 3. Investigation Protocol",
+    "source_file": "brute_force_credential_stuffing.md",
+    "text": "## 3. Investigation Protocol\n1. Filter CloudTrail logs by `eventName: ConsoleLogin` and `errorCode: Exception` / `errorMessage: Failed authentication`.\n2. Group attempts by `sourceIPAddress` and targeted `userName`.\n3. Check if Multi-Factor Authentication (`additionalEventData.MFAUsed: \"No\"`) was bypassed or challenged.\n4. If a successful login followed, inspect all actions performed by that session within the next 2 hours."
+  },
+  {
+    "chunk_id": "brute_force_credential_stuffing.md_4",
+    "document_title": "Suspicious Authentication & Credential Stuffing Investigation Guide",
+    "section_title": "Suspicious Authentication & Credential Stuffing Investigation Guide - 4. Response & Containment Playbook",
+    "source_file": "brute_force_credential_stuffing.md",
+    "text": "## 4. Response & Containment Playbook\n1. **Lock Compromised IAM User**:\n   - Reset console password and delete the user's login profile:\n     `aws iam delete-login-profile --user-name <TargetUser>`\n2. **Enforce MFA**:\n   - Ensure IAM policies mandate MFA for all console sessions (`aws:MultiFactorAuthPresent: true`).\n3. **Block Adversary IP via AWS WAF or Network ACL**:\n   - Add the offending IP address to a rate-limiting or blocking IP set in AWS WAF or VPC NACL.\n4. **Require Credential Re-authentication**:\n   - Revoke active temporary STS credentials for the user."
+  },
+  {
+    "chunk_id": "cloudtrail_evasion_tampering.md_0",
+    "document_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide",
+    "section_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide - AWS CloudTrail Defense Evasion & Log Tampering Response Guide",
+    "source_file": "cloudtrail_evasion_tampering.md",
+    "text": "# AWS CloudTrail Defense Evasion & Log Tampering Response Guide"
+  },
+  {
+    "chunk_id": "cloudtrail_evasion_tampering.md_1",
+    "document_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide",
+    "section_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide - 1. Threat Overview & MITRE ATT&CK Mapping",
+    "source_file": "cloudtrail_evasion_tampering.md",
+    "text": "## 1. Threat Overview & MITRE ATT&CK Mapping\n- **Technique ID**: T1562.001 (Impair Defenses: Disable or Modify Tools)\n- **Category**: Defense Evasion\n- **Cloud Environment**: AWS CloudTrail, Amazon CloudWatch Logs, AWS Config\n\nAdversaries disable or degrade cloud audit logging to conceal subsequent malicious operations such as data exfiltration, cryptomining deployment, or infrastructure modification. Tampering with CloudTrail trails is among the highest severity alerts in AWS environments, as it blinds security monitoring tools, SIEM pipelines, and SOC analysts."
+  },
+  {
+    "chunk_id": "cloudtrail_evasion_tampering.md_2",
+    "document_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide",
+    "section_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide - 2. Key Suspicious Indicators and High-Severity Events",
+    "source_file": "cloudtrail_evasion_tampering.md",
+    "text": "## 2. Key Suspicious Indicators and High-Severity Events\n1. **`StopLogging`**:\n   - Explicitly halts the recording of AWS API activities for a specified CloudTrail trail.\n2. **`DeleteTrail`**:\n   - Completely removes a CloudTrail trail and stops all logging permanently.\n3. **`UpdateTrail`**:\n   - Disabling `IsMultiRegionTrail` or `IncludeGlobalServiceEvents` to blind specific regions or IAM global events.\n   - Modifying S3 bucket delivery targets to redirect or drop logs.\n4. **`PutEventSelectors`**:\n   - Filtering out read/write management events or data events, preventing logging of critical AWS operations.\n5. **`DeleteFlowLogs` / `DisableAlarm`**:\n   - Disabling VPC flow logging or disabling CloudWatch security alarms."
+  },
+  {
+    "chunk_id": "cloudtrail_evasion_tampering.md_3",
+    "document_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide",
+    "section_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide - 3. Immediate Investigation Checklist",
+    "source_file": "cloudtrail_evasion_tampering.md",
+    "text": "## 3. Immediate Investigation Checklist\n1. Identify the caller entity: Extract `userIdentity.principalId`, `userIdentity.arn`, and `sourceIPAddress`.\n2. Determine if the action occurred from an authorized automated CI/CD pipeline (e.g., Terraform role) or an interactive user session.\n3. Check for contemporaneous actions by the same caller in the 15 minutes before and after the tampering event.\n4. Verify whether CloudTrail logs were configured with multi-region and S3 bucket Object Lock (WORM compliance)."
+  },
+  {
+    "chunk_id": "cloudtrail_evasion_tampering.md_4",
+    "document_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide",
+    "section_title": "AWS CloudTrail Defense Evasion & Log Tampering Response Guide - 4. Immediate Incident Response Runbook",
+    "source_file": "cloudtrail_evasion_tampering.md",
+    "text": "## 4. Immediate Incident Response Runbook\n1. **Restore Logging Immediately**:\n   - Re-enable the trail without delay:\n     `aws cloudtrail start-logging --name <TrailName>`\n2. **Quarantine Compromised Credentials**:\n   - Invalidate the active credentials used to perform the evasion action.\n   - Attach the AWS managed policy `AWSCompromisedKeyQuarantine` or an inline Deny-All policy.\n3. **Audit S3 Trail Bucket Integrity**:\n   - Inspect the S3 bucket storing logs for any unauthorized `DeleteObject` or bucket lifecycle rule alterations.\n4. **Enforce Organization SCPs**:\n   - Enforce an AWS Organizations Service Control Policy that explicitly blocks `cloudtrail:StopLogging`, `cloudtrail:DeleteTrail`, and `cloudtrail:UpdateTrail` from being executed by member account administrators."
+  },
+  {
+    "chunk_id": "exfiltration_s3_data_access.md_0",
+    "document_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide",
+    "section_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide - Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide",
+    "source_file": "exfiltration_s3_data_access.md",
+    "text": "# Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide"
+  },
+  {
+    "chunk_id": "exfiltration_s3_data_access.md_1",
+    "document_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide",
+    "section_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide - 1. Threat Overview & MITRE ATT&CK Mapping",
+    "source_file": "exfiltration_s3_data_access.md",
+    "text": "## 1. Threat Overview & MITRE ATT&CK Mapping\n- **Technique ID**: T1530 (Data from Cloud Storage), T1567 (Exfiltration Over Web Service)\n- **Category**: Exfiltration & Impact\n- **Cloud Environment**: Amazon Simple Storage Service (Amazon S3), AWS KMS\n\nAmazon S3 buckets store an enterprise's most sensitive data assets, including customer records, financial reports, backups, and proprietary source code. Attackers manipulate bucket access control lists (ACLs) or bucket policies to expose data publicly, or use compromised IAM credentials to mass-download objects."
+  },
+  {
+    "chunk_id": "exfiltration_s3_data_access.md_2",
+    "document_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide",
+    "section_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide - 2. Key Suspicious Indicators and High-Risk Events",
+    "source_file": "exfiltration_s3_data_access.md",
+    "text": "## 2. Key Suspicious Indicators and High-Risk Events\n1. **`PutBucketPolicy` / `PutBucketAcl`**:\n   - Setting `Principal: \"*\"` or `AllUsers` (`http://acs.amazonaws.com/groups/global/AllUsers`) permissions, opening the bucket to public anonymous read/write.\n2. **`DeleteBucketPolicy`**:\n   - Removing security restrictions or IP-whitelisting policies on confidential data buckets.\n3. **Mass `GetObject` Volumetric Anomalies**:\n   - An unusual surge in `GetObject` requests or data transfer egress volume from an identity or external IP that historically has minimal S3 activity.\n4. **`PutAccountPublicAccessBlock` Disabled**:\n   - Turning off account-level S3 Block Public Access settings.\n5. **AWS KMS Key Policy Tampering (`PutKeyPolicy`)**:\n   - Granting external AWS accounts permission to decrypt customer master keys (CMKs) used for S3 encryption."
+  },
+  {
+    "chunk_id": "exfiltration_s3_data_access.md_3",
+    "document_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide",
+    "section_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide - 3. Investigation Protocol",
+    "source_file": "exfiltration_s3_data_access.md",
+    "text": "## 3. Investigation Protocol\n1. Examine CloudTrail event `requestParameters` for the bucket name, ARN, and policy statement applied.\n2. Check S3 server access logs or CloudTrail data events to calculate the total byte volume transferred.\n3. Determine whether the data within the bucket is classified as PII, HIPAA, or PCI-DSS sensitive data.\n4. Check if S3 object versioning and MFA delete were enabled."
+  },
+  {
+    "chunk_id": "exfiltration_s3_data_access.md_4",
+    "document_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide",
+    "section_title": "Amazon S3 Data Exfiltration & Storage Exposure Remediation Guide - 4. Remediation & Hardening Steps",
+    "source_file": "exfiltration_s3_data_access.md",
+    "text": "## 4. Remediation & Hardening Steps\n1. **Enable S3 Block Public Access**:\n   - Apply account-wide or bucket-specific Block Public Access immediately:\n     `aws s3api put-public-access-block --bucket <BucketName> --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true`\n2. **Restore Secure Bucket Policy**:\n   - Replace the permissive policy with a least-privilege policy restricted to specific VPC endpoints (`aws:sourceVpce`) and role ARNs.\n3. **Rotate KMS Encryption Keys**:\n   - If KMS permissions were modified, generate a new KMS Key and re-encrypt sensitive objects.\n4. **Isolate or Revoke Perpetrator Identity**:\n   - Quarantine the identity performing unauthorized S3 modifications."
+  },
+  {
+    "chunk_id": "incident_containment_runbooks.md_0",
+    "document_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures",
+    "section_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures - Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures",
+    "source_file": "incident_containment_runbooks.md",
+    "text": "# Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures"
+  },
+  {
+    "chunk_id": "incident_containment_runbooks.md_1",
+    "document_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures",
+    "section_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures - 1. Principles of Cloud Incident Response",
+    "source_file": "incident_containment_runbooks.md",
+    "text": "## 1. Principles of Cloud Incident Response\n1. **Safety First**: Autonomous or semi-autonomous remediation actions must require human confirmation or pre-authorized policy guards to prevent unintended production outages.\n2. **Auditability**: Every action, actor, timestamp, and target entity must be logged to an immutable audit trail.\n3. **Preservation of Evidence**: Ensure snapshotting and CloudTrail retention prior to terminating resources.\n4. **Least Disruptive Containment**: Prefer credential revocation and temporary quarantine over permanent deletion."
+  },
+  {
+    "chunk_id": "incident_containment_runbooks.md_2",
+    "document_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures",
+    "section_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures - 2. Standard Containment Actions Catalog",
+    "source_file": "incident_containment_runbooks.md",
+    "text": "## 2. Standard Containment Actions Catalog\n\n### Action A: Revoke Active IAM Session\n- **Purpose**: Instantly terminates active AWS STS temporary credentials without deleting the user account.\n- **Mechanism**: Attaches an inline policy that rejects any request whose token issue timestamp is older than current time:\n```json\n{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n      \"Effect\": \"Deny\",\n      \"Action\": \"*\",\n      \"Resource\": \"*\",\n      \"Condition\": {\n        \"DateLessThan\": {\n          \"aws:TokenIssueTime\": \"2026-10-12T18:00:00Z\"\n        }\n      }\n    }\n  ]\n}\n```\n\n### Action B: Attach Temporary DenyAll Quarantine Policy\n- **Purpose**: Halts all AWS API execution for a suspicious IAM entity while preserving the identity for forensic audit.\n- **Target**: IAM User or Role ARN.\n- **Rollback**: Detach policy when investigation completes or identity is verified.\n\n### Action C: Rotate Access Key & Deactivate Active Key\n- **Purpose**: Mitigates active credential exposure while providing a replacement secret.\n- **CLI Equivalent**: `aws iam update-access-key --access-key-id <KEY_ID> --status Inactive`\n\n### Action D: Isolate Source IP via Network ACL / WAF\n- **Purpose**: Drops all inbound network packets from an active attacking IP or subnet across the VPC or API Gateway perimeter.\n- **Target**: Attacking IP (e.g. 198.51.100.44).\n\n### Action E: Restore CloudTrail Multi-Region Logging\n- **Purpose**: Counteracts defense evasion tampering by automatically restarting stopped audit trails."
+  },
+  {
+    "chunk_id": "incident_containment_runbooks.md_3",
+    "document_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures",
+    "section_title": "Autonomous & Assisted Cloud Incident Containment Standard Operating Procedures - 3. Human-in-the-Loop Verification",
+    "source_file": "incident_containment_runbooks.md",
+    "text": "## 3. Human-in-the-Loop Verification\nAll remediation actions within CloudSentinel AI operate in **Assisted Response Mode** with Analyst confirmation modals to prevent accidental disruption of production workloads. Each action records simulation parameters and returns verified mock or live results."
+  },
+  {
+    "chunk_id": "security_group_misconfiguration.md_0",
+    "document_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide",
+    "section_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide - AWS Security Group Misconfiguration & Perimeter Exposure Guide",
+    "source_file": "security_group_misconfiguration.md",
+    "text": "# AWS Security Group Misconfiguration & Perimeter Exposure Guide"
+  },
+  {
+    "chunk_id": "security_group_misconfiguration.md_1",
+    "document_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide",
+    "section_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide - 1. Threat Overview & MITRE ATT&CK Mapping",
+    "source_file": "security_group_misconfiguration.md",
+    "text": "## 1. Threat Overview & MITRE ATT&CK Mapping\n- **Technique ID**: T1190 (Exploit Public-Facing Application), T1562 (Impair Defenses)\n- **Category**: Initial Access & Lateral Movement\n- **Cloud Environment**: Amazon VPC, Amazon EC2 Security Groups\n\nSecurity groups act as virtual stateful firewalls controlling inbound and outbound traffic for EC2 instances, RDS databases, and load balancers. Accidental or adversary-induced opening of administrative ports to `0.0.0.0/0` (the entire Internet) creates instant attack surface for brute force, vulnerability scanning, and remote code execution."
+  },
+  {
+    "chunk_id": "security_group_misconfiguration.md_2",
+    "document_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide",
+    "section_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide - 2. Key Suspicious Indicators and API Signatures",
+    "source_file": "security_group_misconfiguration.md",
+    "text": "## 2. Key Suspicious Indicators and API Signatures\n1. **`AuthorizeSecurityGroupIngress`**:\n   - Rule adding CIDR `0.0.0.0/0` or `::/0` with `fromPort: 22` (SSH), `fromPort: 3389` (RDP), `fromPort: 3306` (MySQL), or `fromPort: 5432` (PostgreSQL).\n2. **`ModifySecurityGroupRules`**:\n   - Replacing internal VPN CIDRs with broad public ranges.\n3. **`AuthorizeSecurityGroupEgress`**:\n   - Allowing unrestricted outbound traffic on non-standard ports to enable reverse shell connections or command-and-control (C2) beaconing.\n4. **`RunInstances` with High-Compute Shapes**:\n   - Concurrently launching GPU-heavy instances (e.g. `g5.12xlarge`) or mining instances attached to newly opened security groups."
+  },
+  {
+    "chunk_id": "security_group_misconfiguration.md_3",
+    "document_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide",
+    "section_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide - 3. Investigation Protocol",
+    "source_file": "security_group_misconfiguration.md",
+    "text": "## 3. Investigation Protocol\n1. Extract `requestParameters.groupId` or `requestParameters.ipPermissions` from CloudTrail.\n2. Cross-reference the security group ID against active EC2 instances and ENIs (Elastic Network Interfaces).\n3. Review whether VPC Flow Logs detect active ingress connection spikes or external port scans hitting the instance.\n4. Check whether AWS Systems Manager (SSM) Session Manager is available as an alternative to exposing port 22/3389."
+  },
+  {
+    "chunk_id": "security_group_misconfiguration.md_4",
+    "document_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide",
+    "section_title": "AWS Security Group Misconfiguration & Perimeter Exposure Guide - 4. Remediation & Containment Actions",
+    "source_file": "security_group_misconfiguration.md",
+    "text": "## 4. Remediation & Containment Actions\n1. **Revoke Ingress Rule**:\n   - Immediately delete the unrestricted rule:\n     `aws ec2 revoke-security-group-ingress --group-id <GroupId> --protocol tcp --port 22 --cidr 0.0.0.0/0`\n2. **Apply Default Restrictive Security Group**:\n   - Reassign the network interface to a quarantine security group with no inbound ingress.\n3. **Migrate to AWS SSM Session Manager**:\n   - Eliminate direct public SSH/RDP ingress by utilizing IAM-governed AWS SSM.\n4. **Deploy AWS Config Auto-Remediation**:\n   - Activate AWS Config managed rule `restricted-ssh` with automated remediation Lambda."
+  }
+]

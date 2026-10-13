@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - GenAI Security Assistant (RAG){% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-robot text-info me-2"></i>GenAI Cloud Security Assistant (RAG)</h2>
+    <p class="text-secondary mb-0 small">Retrieval-Augmented Generation incident explainer powered by local FAISS vector store &amp; cloud playbooks.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <!-- Provider Status Badge -->
+    <span class="badge {% if rag_status.has_gemini_key or rag_status.has_openai_key %}bg-success{% else %}bg-warning{% endif %} bg-opacity-25 text-light px-3 py-2 border border-secondary border-opacity-25 rounded-pill">
+      <i class="bi bi-cpu-fill me-1"></i>
+      Provider: {% if rag_status.has_gemini_key %}Google Gemini (Live){% else %}Fallback Demonstration Mode (FAISS Active){% endif %}
+    </span>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Side: Incident Selector & Input Controls -->
+  <div class="col-lg-4">
+    <div class="cyber-card p-4 mb-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-crosshair text-info me-2"></i>Select Incident for RAG Analysis</h6>
+      
+      <div class="mb-3">
+        <label class="form-label text-muted small">Choose Detected Incident:</label>
+        <select class="form-select form-select-cyber" id="assistantIncidentSelect">
+          <option value="">-- Choose an Incident to Analyze --</option>
+          {% for inc in incidents %}
+          <option value="{{ inc.id }}" {% if request.args.get('incident_id')|int == inc.id %}selected{% endif %}>
+            [{{ inc.severity }}] {{ inc.incident_code }} - {{ inc.event_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label text-muted small">Custom SOC Question (Optional):</label>
+        <textarea id="assistantQueryInput" class="form-control form-control-cyber small" rows="3" placeholder="e.g. What is the impact of this API call? What CloudWatch queries should I run?"></textarea>
+      </div>
+
+      <button class="btn btn-cyber-primary btn-sm w-100" id="btnRunRAG" onclick="triggerRAGAnalysis()">
+        <i class="bi bi-lightning-charge me-1"></i>Generate AI Threat Explanation
+      </button>
+
+      <div class="mt-4 pt-3 border-top border-secondary border-opacity-10">
+        <div class="text-muted small fw-bold mb-2">Vector Index Telemetry:</div>
+        <div class="small text-secondary">
+          <div>&bull; Indexed Chunks: <strong class="text-info">{{ rag_status.total_indexed_chunks }}</strong></div>
+          <div>&bull; Knowledge Documents: <strong class="text-info">{{ rag_status.knowledge_docs_count }}</strong></div>
+          <div>&bull; Retrieval Engine: <strong class="text-success">FAISS (Cosine L2)</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fallback Mode Explanation Card -->
+    <div class="cyber-card p-4">
+      <h6 class="fw-bold text-warning mb-2"><i class="bi bi-info-circle me-1"></i>Demonstration Mode Transparency</h6>
+      <p class="text-secondary small mb-0">
+        If no external <code>GEMINI_API_KEY</code> is configured in <code>.env</code>, CloudSentinel AI operates in an intelligent 
+        <strong>Fallback Demonstration Engine</strong>. It performs true FAISS vector similarity search over local security playbooks, 
+        correlates observed event telemetry, and synthesizes structured recommendations with full transparency.
+      </p>
+    </div>
+  </div>
+
+  <!-- Right Side: RAG Results & Explanation Output -->
+  <div class="col-lg-8">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <div class="d-flex align-items-center justify-content-between w-100">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-chat-left-dots text-info me-2"></i>Security Investigation Report</h5>
+          <span class="badge bg-secondary bg-opacity-25 text-light small" id="ragStatusBadge">Awaiting Query</span>
+        </div>
+      </div>
+      <div class="cyber-card-body p-4" id="ragOutputContainer">
+        <!-- Default Empty State -->
+        <div class="text-center py-5 text-muted" id="ragEmptyState">
+          <i class="bi bi-robot fs-1 text-secondary mb-3 d-block"></i>
+          <h5>No Incident Selected</h5>
+          <p class="small text-secondary mb-3" style="max-width: 480px; margin: 0 auto;">
+            Select an active security incident from the left dropdown and click 
+            "Generate AI Threat Explanation" to retrieve contextual cloud playbooks and generate structured recommendations.
+          </p>
+        </div>
+
+        <!-- Dynamic Loaded Report Content -->
+        <div id="ragReportContent" class="d-none">
+          <!-- Engine Provider Banner -->
+          <div class="alert alert-secondary d-flex align-items-center justify-content-between py-2 px-3 mb-4" id="providerBanner">
+            <span class="small" id="providerBannerText"></span>
+            <span class="badge bg-info text-dark" id="providerBadge"></span>
+          </div>
+
+          <!-- Section 1: Threat Explanation -->
+          <div class="mb-4">
+            <h6 class="fw-bold text-info mb-2"><i class="bi bi-shield-shaded me-1"></i>1. Threat Analysis &amp; Attack Vector</h6>
+            <div class="p-3 rounded small text-light" style="background: rgba(0,0,0,0.3); border-left: 3px solid var(--accent-cyan);" id="outExplanation"></div>
+          </div>
+
+          <!-- Section 2: Observed Telemetry Evidence -->
+          <div class="mb-4">
+            <h6 class="fw-bold text-warning mb-2"><i class="bi bi-binoculars me-1"></i>2. Observed Telemetry &amp; Evidence</h6>
+            <pre class="cyber-pre small mb-0" id="outEvidence"></pre>
+          </div>
+
+          <!-- Section 3: Recommended Investigation Steps -->
+          <div class="mb-4">
+            <h6 class="fw-bold text-primary mb-2"><i class="bi bi-search me-1"></i>3. Step-by-Step SOC Investigation</h6>
+            <ul class="list-group list-group-flush rounded small" id="outInvestigationSteps"></ul>
+          </div>
+
+          <!-- Section 4: Assisted Containment Actions -->
+          <div class="mb-4">
+            <h6 class="fw-bold text-danger mb-2"><i class="bi bi-shield-exclamation me-1"></i>4. Recommended Containment Actions</h6>
+            <ul class="list-group list-group-flush rounded small" id="outRemediationSteps"></ul>
+          </div>
+
+          <!-- Section 5: Uncertainty & Knowledge Citations -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-journal-bookmark me-1"></i>Knowledge Sources Cited:</h6>
+              <div id="outSources" class="d-flex flex-wrap"></div>
+            </div>
+            <div class="col-md-6">
+              <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-question-diamond me-1"></i>Assessment Uncertainty:</h6>
+              <div class="p-2 rounded text-muted small" style="background: rgba(0,0,0,0.25);" id="outUncertainty"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function triggerRAGAnalysis() {
+  const select = document.getElementById('assistantIncidentSelect');
+  const incidentId = select.value;
+  const userQuery = document.getElementById('assistantQueryInput').value.trim();
+
+  if (!incidentId) {
+    showToast('Please select an incident first', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btnRunRAG');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Retrieving &amp; Generating...';
+
+  document.getElementById('ragEmptyState').classList.add('d-none');
+  document.getElementById('ragReportContent').classList.add('d-none');
+  document.getElementById('ragStatusBadge').innerText = 'Querying Vector Index...';
+
+  try {
+    const res = await fetch('/api/assistant/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incident_id: incidentId, query: userQuery })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const a = data.analysis;
+      document.getElementById('ragReportContent').classList.remove('d-none');
+      document.getElementById('ragStatusBadge').innerText = 'Analysis Complete';
+
+      // Provider banner
+      document.getElementById('providerBannerText').innerText = a.fallback_note || `Inference Model: ${a.provider}`;
+      document.getElementById('providerBadge').innerText = a.is_fallback ? 'Fallback Mode' : 'Live LLM';
+
+      // Threat explanation
+      document.getElementById('outExplanation').innerText = a.explanation;
+
+      // Evidence
+      document.getElementById('outEvidence').innerText = a.observed_evidence || 'No telemetry summary generated';
+
+      // Investigation steps
+      const invList = document.getElementById('outInvestigationSteps');
+      invList.innerHTML = (a.investigation_steps || []).map((s, idx) => `
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 py-2">
+          <strong class="text-info me-2">${idx + 1}.</strong> ${s}
+        </li>
+      `).join('');
+
+      // Remediation steps
+      const remList = document.getElementById('outRemediationSteps');
+      remList.innerHTML = (a.remediation_recommendations || []).map((s, idx) => `
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 py-2">
+          <strong class="text-danger me-2">&bull;</strong> ${s}
+        </li>
+      `).join('');
+
+      // Citations
+      const sourcesDiv = document.getElementById('outSources');
+      sourcesDiv.innerHTML = (a.sources_cited || []).map(s => `
+        <span class="source-badge">
+          <i class="bi bi-file-earmark-text me-1"></i>${s.title}
+          ${s.relevance ? `<small class="text-muted">(${s.relevance})</small>` : ''}
+        </span>
+      `).join('') || '<span class="text-muted small">No direct vector chunks cited</span>';
+
+      // Uncertainty
+      document.getElementById('outUncertainty').innerText = a.uncertainty_assessment || 'Confidence high based on log signature.';
+    } else {
+      showToast(`Analysis failed: ${data.error}`, 'danger');
+      document.getElementById('ragEmptyState').classList.remove('d-none');
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'danger');
+    document.getElementById('ragEmptyState').classList.remove('d-none');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>Generate AI Threat Explanation';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('incident_id')) {
+    triggerRAGAnalysis();
+  }
+});
+</script>
+{% endblock %}

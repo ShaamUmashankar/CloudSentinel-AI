@@ -1,0 +1,9 @@
+eventID,eventTime,eventName,eventSource,awsRegion,sourceIPAddress,userName,userType,errorCode,errorMessage
+csv-log-001,2026-10-12T08:10:00Z,DescribeInstances,ec2.amazonaws.com,us-east-1,10.0.1.100,deploy.bot,IAMUser,,
+csv-log-002,2026-10-12T08:12:30Z,ListBuckets,s3.amazonaws.com,us-east-1,10.0.1.100,deploy.bot,IAMUser,,
+csv-log-003,2026-10-12T01:30:15Z,ConsoleLogin,signin.amazonaws.com,us-east-1,194.26.29.112,sec_admin,IAMUser,AuthFailure,Failed authentication
+csv-log-004,2026-10-12T01:31:02Z,ConsoleLogin,signin.amazonaws.com,us-east-1,194.26.29.112,sec_admin,IAMUser,AuthFailure,Failed authentication
+csv-log-005,2026-10-12T01:32:00Z,ConsoleLogin,signin.amazonaws.com,us-east-1,194.26.29.112,sec_admin,IAMUser,AuthFailure,Failed authentication
+csv-log-006,2026-10-12T01:45:10Z,PutUserPolicy,iam.amazonaws.com,us-east-1,194.26.29.112,sec_admin,IAMUser,,
+csv-log-007,2026-10-12T02:00:20Z,DeleteTrail,cloudtrail.amazonaws.com,us-east-1,194.26.29.112,sec_admin,IAMUser,,
+csv-log-008,2026-10-12T09:20:00Z,DescribeVolumes,ec2.amazonaws.com,us-east-1,192.168.1.50,dev.engineer,IAMUser,,

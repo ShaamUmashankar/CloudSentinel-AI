@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Normalized Event Explorer{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-table text-info me-2"></i>Normalized Cloud Event Explorer</h2>
+    <p class="text-secondary mb-0 small">Browse, search, and filter all cleaned and schema-normalized CloudTrail events.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge bg-secondary bg-opacity-25 text-light px-3 py-2">
+      <i class="bi bi-list-check me-1"></i>{{ events|length }} Events Displayed
+    </span>
+  </div>
+</div>
+
+<!-- Search and Filter Bar -->
+<div class="cyber-card p-3 mb-4">
+  <div class="row g-2 align-items-center">
+    <div class="col-md-5">
+      <div class="input-group">
+        <span class="input-group-text bg-transparent border-secondary border-opacity-25 text-secondary">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="text" id="eventSearchInput" class="form-control form-control-cyber" placeholder="Search event name, principal, IP, or resource...">
+      </div>
+    </div>
+    <div class="col-md-3">
+      <select id="eventCategoryFilter" class="form-select form-select-cyber">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select id="eventRiskFilter" class="form-select form-select-cyber">
+        <option value="">All Risk Levels</option>
+        <option value="high">High Risk (&gt;0.6)</option>
+        <option value="medium">Medium Risk (0.3-0.6)</option>
+        <option value="low">Low Risk (&lt;0.3)</option>
+      </select>
+    </div>
+    <div class="col-md-2 text-end">
+      <button class="btn btn-cyber-outline btn-sm w-100" onclick="resetEventFilters()">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Events Table -->
+<div class="cyber-card">
+  <div class="table-responsive">
+    <table class="table table-cyber" id="eventsTable">
+      <thead>
+        <tr>
+          <th>Timestamp (UTC)</th>
+          <th>Event Name</th>
+          <th>Category</th>
+          <th>Principal ID</th>
+          <th>Source IP</th>
+          <th>Target Resource</th>
+          <th>Action</th>
+          <th>Risk Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if events %}
+          {% for evt in events %}
+          <tr data-category="{{ evt.event_category }}" data-risk="{{ evt.risk_score }}">
+            <td class="text-muted small"><code class="cyber-code">{{ evt.timestamp }}</code></td>
+            <td>
+              <span class="fw-bold {% if evt.is_tampering == 1 %}text-danger{% elif evt.is_privilege_related == 1 %}text-warning{% else %}text-light{% endif %}">
+                {{ evt.event_name }}
+              </span>
+              {% if evt.is_error == 1 %}
+              <span class="badge bg-danger bg-opacity-25 text-danger ms-1" title="{{ evt.error_code }}">Failed</span>
+              {% endif %}
+            </td>
+            <td><span class="badge bg-secondary bg-opacity-25 text-light">{{ evt.event_category }}</span></td>
+            <td><span class="text-info">{{ evt.principal_id }}</span></td>
+            <td>
+              <code class="cyber-code">{{ evt.source_ip }}</code>
+              {% if evt.is_internal_ip == 1 %}
+              <span class="badge bg-success bg-opacity-15 text-success small ms-1" title="Private VPC CIDR">VPC</span>
+              {% else %}
+              <span class="badge bg-warning bg-opacity-15 text-warning small ms-1" title="Public Internet IP">EXT</span>
+              {% endif %}
+            </td>
+            <td class="small text-truncate" style="max-width: 160px;" title="{{ evt.target_resource }}">
+              {{ evt.target_resource or '-' }}
+            </td>
+            <td>
+              <span class="badge {% if evt.action_type == 'Write' %}bg-primary bg-opacity-25 text-info{% else %}bg-secondary bg-opacity-25 text-muted{% endif %}">
+                {{ evt.action_type }}
+              </span>
+            </td>
+            <td>
+              <span class="fw-bold {% if evt.risk_score >= 0.7 %}text-danger{% elif evt.risk_score >= 0.4 %}text-warning{% else %}text-success{% endif %}">
+                {{ evt.risk_score }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-5">
+              No normalized events in database. Ingest logs from the <a href="/ingestion" class="text-info">Ingestion page</a>.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const searchInput = document.getElementById('eventSearchInput');
+const categoryFilter = document.getElementById('eventCategoryFilter');
+const riskFilter = document.getElementById('eventRiskFilter');
+const tableRows = document.querySelectorAll('#eventsTable tbody tr');
+
+function applyFilters() {
+  const query = searchInput.value.toLowerCase().trim();
+  const selectedCat = categoryFilter.value;
+  const selectedRisk = riskFilter.value;
+
+  tableRows.forEach(row => {
+    const rowText = row.innerText.toLowerCase();
+    const rowCat = row.getAttribute('data-category');
+    const rowRisk = parseFloat(row.getAttribute('data-risk') || 0);
+
+    let matchesSearch = !query || rowText.includes(query);
+    let matchesCat = !selectedCat || rowCat === selectedCat;
+    let matchesRisk = true;
+
+    if (selectedRisk === 'high') matchesRisk = rowRisk >= 0.6;
+    else if (selectedRisk === 'medium') matchesRisk = rowRisk >= 0.3 && rowRisk < 0.6;
+    else if (selectedRisk === 'low') matchesRisk = rowRisk < 0.3;
+
+    if (matchesSearch && matchesCat && matchesRisk) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+searchInput.addEventListener('input', applyFilters);
+categoryFilter.addEventListener('change', applyFilters);
+riskFilter.addEventListener('change', applyFilters);
+
+function resetEventFilters() {
+  searchInput.value = '';
+  categoryFilter.value = '';
+  riskFilter.value = '';
+  applyFilters();
+}
+</script>
+{% endblock %}

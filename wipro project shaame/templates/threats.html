@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Threat &amp; Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-radioactive text-danger me-2"></i>Active Threats &amp; ML Anomalies</h2>
+    <p class="text-secondary mb-0 small">Isolation Forest anomaly scores and rule-correlated security alerts across your cloud perimeter.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-cyber-primary btn-sm" onclick="retrainModel()" id="btn-retrain-ml">
+      <i class="bi bi-cpu me-1"></i>Retrain ML Model
+    </button>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="cyber-card p-3 mb-4">
+  <div class="row g-2 align-items-center">
+    <div class="col-md-5">
+      <div class="input-group">
+        <span class="input-group-text bg-transparent border-secondary border-opacity-25 text-secondary">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="text" id="threatSearchInput" class="form-control form-control-cyber" placeholder="Search threat title, incident code, or principal...">
+      </div>
+    </div>
+    <div class="col-md-3">
+      <select id="threatSeverityFilter" class="form-select form-select-cyber">
+        <option value="">All Severities</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select id="threatStatusFilter" class="form-select form-select-cyber">
+        <option value="">All Statuses</option>
+        <option value="Open">Open</option>
+        <option value="Investigating">Investigating</option>
+        <option value="Resolved">Resolved</option>
+        <option value="False Positive">False Positive</option>
+      </select>
+    </div>
+    <div class="col-md-2 text-end">
+      <button class="btn btn-cyber-outline btn-sm w-100" onclick="resetThreatFilters()">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Threats Table -->
+<div class="cyber-card">
+  <div class="table-responsive">
+    <table class="table table-cyber" id="threatsTable">
+      <thead>
+        <tr>
+          <th>Incident Code</th>
+          <th>Severity</th>
+          <th>Threat Description</th>
+          <th>Principal</th>
+          <th>Source IP</th>
+          <th>ML Anomaly Score</th>
+          <th>Rule Trigger</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if incidents %}
+          {% for inc in incidents %}
+          <tr data-severity="{{ inc.severity }}" data-status="{{ inc.status }}">
+            <td><code class="cyber-code">{{ inc.incident_code }}</code></td>
+            <td>
+              <span class="badge {% if inc.severity == 'CRITICAL' %}badge-critical{% elif inc.severity == 'HIGH' %}badge-high{% elif inc.severity == 'MEDIUM' %}badge-medium{% else %}badge-low{% endif %}">
+                {{ inc.severity }}
+              </span>
+            </td>
+            <td>
+              <div class="fw-bold">{{ inc.title }}</div>
+              <div class="text-secondary small text-truncate" style="max-width: 280px;" title="{{ inc.risk_factors }}">
+                <i class="bi bi-info-circle text-info me-1"></i>{{ inc.risk_factors }}
+              </div>
+            </td>
+            <td><span class="text-info">{{ inc.principal }}</span></td>
+            <td><code class="cyber-code">{{ inc.source_ip }}</code></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold text-danger">{{ inc.ml_anomaly_score }}</span>
+                <div class="progress flex-grow-1" style="height: 6px; background: rgba(255,255,255,0.08); width: 50px;">
+                  <div class="progress-bar bg-danger" style="width: {{ inc.ml_anomaly_score * 100 }}%"></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge bg-secondary bg-opacity-25 text-light small">
+                {{ inc.rule_triggered or 'ML Baseline' }}
+              </span>
+            </td>
+            <td>
+              <span class="badge {% if inc.status == 'Open' %}badge-open{% elif inc.status == 'Investigating' %}badge-investigating{% elif inc.status == 'Resolved' %}badge-resolved{% else %}badge-false-positive{% endif %}">
+                {{ inc.status }}
+              </span>
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <a href="/incident/{{ inc.id }}" class="btn btn-cyber-outline btn-sm py-1 px-2" title="Inspect Incident Dossier">
+                  <i class="bi bi-search"></i>
+                </a>
+                <a href="/assistant?incident_id={{ inc.id }}" class="btn btn-cyber-primary btn-sm py-1 px-2" title="Ask GenAI Assistant">
+                  <i class="bi bi-robot"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-5">
+              No threats detected yet. Ingest demonstration logs from the <a href="/ingestion" class="text-info">Ingestion page</a>.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const searchInput = document.getElementById('threatSearchInput');
+const severityFilter = document.getElementById('threatSeverityFilter');
+const statusFilter = document.getElementById('threatStatusFilter');
+const tableRows = document.querySelectorAll('#threatsTable tbody tr');
+
+function applyThreatFilters() {
+  const query = searchInput.value.toLowerCase().trim();
+  const selectedSev = severityFilter.value;
+  const selectedStatus = statusFilter.value;
+
+  tableRows.forEach(row => {
+    const rowText = row.innerText.toLowerCase();
+    const rowSev = row.getAttribute('data-severity');
+    const rowStatus = row.getAttribute('data-status');
+
+    let matchesSearch = !query || rowText.includes(query);
+    let matchesSev = !selectedSev || rowSev === selectedSev;
+    let matchesStatus = !selectedStatus || rowStatus === selectedStatus;
+
+    if (matchesSearch && matchesSev && matchesStatus) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+searchInput.addEventListener('input', applyThreatFilters);
+severityFilter.addEventListener('change', applyThreatFilters);
+statusFilter.addEventListener('change', applyThreatFilters);
+
+function resetThreatFilters() {
+  searchInput.value = '';
+  severityFilter.value = '';
+  statusFilter.value = '';
+  applyThreatFilters();
+}
+</script>
+{% endblock %}

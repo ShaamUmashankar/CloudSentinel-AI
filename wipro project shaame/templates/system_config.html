@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - System Configuration &amp; Model Status{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-sliders text-info me-2"></i>System Configuration &amp; Model Status</h2>
+    <p class="text-secondary mb-0 small">Machine Learning hyperparameters, AWS cloud integration posture, and SOC operational audit trail.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-cyber-primary btn-sm" onclick="retrainModel()">
+      <i class="bi bi-cpu me-1"></i>Retrain Isolation Forest Model
+    </button>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- ML Model Status Card -->
+  <div class="col-lg-6">
+    <div class="cyber-card h-100 p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-cpu text-warning me-2"></i>Machine Learning Anomaly Engine</h5>
+        <span class="badge {% if detector_status.is_ready %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-light">
+          {% if detector_status.is_ready %}Model Trained &amp; Ready{% else %}Default Baseline{% endif %}
+        </span>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Algorithm</div>
+            <div class="fw-bold text-light">{{ detector_status.model_type }}</div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Contamination Factor</div>
+            <div class="fw-bold text-info">{{ detector_status.contamination_rate }} (8%)</div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Alert Threshold</div>
+            <div class="fw-bold text-warning">{{ detector_status.anomaly_threshold }}</div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="text-muted small">Sample Baseline</div>
+            <div class="fw-bold text-success">{{ detector_status.training_metadata.sample_count or 'Synthetic Baseline' }} Events</div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="fw-bold text-secondary mb-2">Extracted Feature Dimensions (10):</h6>
+      <div class="d-flex flex-wrap gap-1 mb-4">
+        {% for feat in detector_status.features_used %}
+        <span class="badge bg-secondary bg-opacity-25 text-light small"><i class="bi bi-tag me-1"></i>{{ feat }}</span>
+        {% endfor %}
+      </div>
+
+      <div class="p-3 rounded small text-secondary" style="background: rgba(0,0,0,0.25);">
+        <i class="bi bi-shield-check text-success me-1"></i>
+        <strong>Synthetic Demonstration Notice:</strong> The model is initialized on synthetic demonstration logs. 
+        It does not claim training on confidential real organizational logs unless imported via the Ingestion module.
+      </div>
+    </div>
+  </div>
+
+  <!-- AWS Cloud Integration Matrix -->
+  <div class="col-lg-6">
+    <div class="cyber-card h-100 p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-cloud-check text-info me-2"></i>AWS Cloud Integration Posture</h5>
+        <span class="badge bg-info bg-opacity-25 text-info">Hybrid Architecture</span>
+      </div>
+
+      <p class="text-secondary small mb-3">
+        CloudSentinel AI is engineered to execute locally without mandatory AWS credentials while maintaining a native cloud path:
+      </p>
+
+      <ul class="list-group list-group-flush rounded small mb-4">
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+          <div>
+            <strong class="text-info">AWS CloudTrail Log Ingestion</strong>
+            <div class="text-muted" style="font-size: 0.78rem;">Schema validation, JSON/CSV parser, timestamp ISO-8601</div>
+          </div>
+          <span class="badge bg-success bg-opacity-25 text-success">Active Locally</span>
+        </li>
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+          <div>
+            <strong class="text-info">AWS Glue (PySpark 4.0 Job)</strong>
+            <div class="text-muted" style="font-size: 0.78rem;">Scalable ETL blueprint &amp; schema mapping</div>
+          </div>
+          <span class="badge bg-info bg-opacity-25 text-info">Blueprint Ready</span>
+        </li>
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+          <div>
+            <strong class="text-info">Amazon Redshift Data Warehouse</strong>
+            <div class="text-muted" style="font-size: 0.78rem;">Analytical warehouse sink schema</div>
+          </div>
+          <span class="badge bg-secondary bg-opacity-25 text-light">Configurable Extension</span>
+        </li>
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+          <div>
+            <strong class="text-info">AWS Lambda &amp; Step Functions</strong>
+            <div class="text-muted" style="font-size: 0.78rem;">Event-driven serverless orchestration &amp; SOAR</div>
+          </div>
+          <span class="badge bg-secondary bg-opacity-25 text-light">Configurable Extension</span>
+        </li>
+        <li class="list-group-item bg-transparent text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+          <div>
+            <strong class="text-info">Simulated Response Actions</strong>
+            <div class="text-muted" style="font-size: 0.78rem;">IAM Session Revocation, DenyAll inline policy, VPC NACL</div>
+          </div>
+          <span class="badge bg-success bg-opacity-25 text-success">Verified Simulation Active</span>
+        </li>
+      </ul>
+
+      <div class="alert alert-secondary py-2 small mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        To connect to an active AWS account, set <code>AWS_ENABLED=True</code>, <code>AWS_REGION</code>, and <code>AWS_CLOUDTRAIL_BUCKET</code> in <code>.env</code>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Immutable Audit Trail Table -->
+<div class="row g-4">
+  <div class="col-12">
+    <div class="cyber-card">
+      <div class="cyber-card-header">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-journal-check text-info me-2"></i>Security Operations Audit Trail (Immutable Log)</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-cyber">
+          <thead>
+            <tr>
+              <th>Timestamp (UTC)</th>
+              <th>Category</th>
+              <th>Action Name</th>
+              <th>Actor</th>
+              <th>Target ID</th>
+              <th>Details</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if audit_logs %}
+              {% for log in audit_logs %}
+              <tr>
+                <td class="text-muted small"><code class="cyber-code">{{ log.timestamp }}</code></td>
+                <td><span class="badge bg-secondary bg-opacity-25 text-light">{{ log.action_category }}</span></td>
+                <td><strong class="text-info">{{ log.action_name }}</strong></td>
+                <td>{{ log.actor }}</td>
+                <td><code class="cyber-code">{{ log.target_id or '-' }}</code></td>
+                <td class="small text-truncate" style="max-width: 320px;" title="{{ log.details }}">{{ log.details }}</td>
+                <td>
+                  <span class="badge {% if log.status == 'SUCCESS' %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-light">
+                    {{ log.status }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="7" class="text-center text-muted py-4">No audit actions recorded yet.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

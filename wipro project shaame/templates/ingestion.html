@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Log Ingestion &amp; ETL Pipeline{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-cloud-arrow-up text-info me-2"></i>Cloud Log Ingestion &amp; Data Pipeline</h2>
+    <p class="text-secondary mb-0 small">Upload CloudTrail JSON or CSV logs, validate schemas, and trigger automated ETL normalization.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-cyber-primary btn-sm" onclick="loadSyntheticSampleLogs()">
+      <i class="bi bi-cloud-arrow-down me-1"></i>Load Synthetic Mixed Data (15 Events)
+    </button>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- File Upload Area -->
+  <div class="col-lg-6">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-file-earmark-arrow-up text-info me-2"></i>Upload CloudTrail Log File (JSON or CSV)</h6>
+      </div>
+      <div class="cyber-card-body">
+        <form id="uploadForm" enctype="multipart/form-data">
+          <div class="dropzone mb-3" id="dropArea">
+            <i class="bi bi-cloud-upload text-info fs-1 mb-2"></i>
+            <h6 class="fw-bold mb-1">Drag and drop log file here or click to browse</h6>
+            <p class="text-muted small mb-3">Accepts AWS CloudTrail JSON (.json) or CSV format logs (.csv)</p>
+            <input type="file" id="fileInput" name="file" accept=".json,.csv" class="d-none">
+            <button type="button" class="btn btn-cyber-outline btn-sm" onclick="document.getElementById('fileInput').click()">
+              Choose File
+            </button>
+            <div id="selectedFileName" class="mt-2 text-info small fw-bold"></div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted small">Max file size: 25 MB</span>
+            <button type="submit" class="btn btn-cyber-primary btn-sm" id="btnUploadSubmit">
+              <i class="bi bi-play-circle me-1"></i>Start Ingestion Pipeline
+            </button>
+          </div>
+        </form>
+
+        <div id="uploadResultAlert" class="mt-3 d-none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive API Event Ingestion Tester -->
+  <div class="col-lg-6">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <div class="d-flex align-items-center justify-content-between w-100">
+          <h6 class="mb-0 fw-bold"><i class="bi bi-terminal text-info me-2"></i>REST API Single Event Stream Ingestion</h6>
+          <span class="badge bg-secondary small">POST /api/logs/ingest</span>
+        </div>
+      </div>
+      <div class="cyber-card-body">
+        <p class="text-secondary small mb-2">Test live streaming ingestion with custom CloudTrail JSON:</p>
+        <div class="mb-3">
+          <textarea id="singleEventPayload" class="form-control form-control-cyber font-monospace small" rows="8">{
+  "eventID": "manual-stream-test-01",
+  "eventTime": "2026-10-12T14:30:00Z",
+  "eventName": "AttachUserPolicy",
+  "eventSource": "iam.amazonaws.com",
+  "awsRegion": "us-east-1",
+  "sourceIPAddress": "198.51.100.99",
+  "userAgent": "curl/8.4.0",
+  "userIdentity": {
+    "type": "IAMUser",
+    "userName": "test.attacker",
+    "principalId": "AIDA999TEST"
+  },
+  "requestParameters": {
+    "userName": "target_user",
+    "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+  }
+}</textarea>
+        </div>
+        <div class="d-flex justify-content-between align-items-center">
+          <button class="btn btn-cyber-outline btn-sm" onclick="resetSampleStreamPayload()">Reset Sample</button>
+          <button class="btn btn-cyber-primary btn-sm" onclick="submitSingleEvent()">
+            <i class="bi bi-send me-1"></i>Stream Event to Ingestion API
+          </button>
+        </div>
+        <div id="singleEventResult" class="mt-3 d-none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ETL Runs History Table -->
+<div class="row g-4">
+  <div class="col-12">
+    <div class="cyber-card">
+      <div class="cyber-card-header">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-clock-history text-info me-2"></i>Data Engineering Pipeline Run History</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-cyber">
+          <thead>
+            <tr>
+              <th>Run ID</th>
+              <th>Source / File</th>
+              <th>Total Input</th>
+              <th>Processed (Clean)</th>
+              <th>Duplicates Dropped</th>
+              <th>Rejected / Invalid</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if etl_history %}
+              {% for run in etl_history %}
+              <tr>
+                <td><code class="cyber-code">{{ run.run_id[:8] }}...</code></td>
+                <td><strong>{{ run.filename or run.source_type }}</strong></td>
+                <td>{{ run.total_records }}</td>
+                <td><span class="text-success fw-bold">{{ run.processed_records }}</span></td>
+                <td><span class="text-warning">{{ run.duplicate_records }}</span></td>
+                <td><span class="text-danger">{{ run.rejected_records }}</span></td>
+                <td>{{ run.duration_seconds }}s</td>
+                <td>
+                  <span class="badge {% if run.status == 'SUCCESS' %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-light">
+                    {{ run.status }}
+                  </span>
+                </td>
+                <td class="text-muted small">{{ run.created_at }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="9" class="text-center text-muted py-4">
+                  No ETL runs recorded yet. Upload a log file above or click "Load Synthetic Mixed Data".
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const dropArea = document.getElementById('dropArea');
+const fileInput = document.getElementById('fileInput');
+const selectedFileName = document.getElementById('selectedFileName');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) {
+    selectedFileName.innerText = `Selected: ${fileInput.files[0].name} (${(fileInput.files[0].size / 1024).toFixed(1)} KB)`;
+  }
+});
+
+dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+dropArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length > 0) {
+    fileInput.files = e.dataTransfer.files;
+    selectedFileName.innerText = `Selected: ${fileInput.files[0].name} (${(fileInput.files[0].size / 1024).toFixed(1)} KB)`;
+  }
+});
+
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showToast('Please select a JSON or CSV log file first', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btnUploadSubmit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing Pipeline...';
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  try {
+    const res = await fetch('/api/logs/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    const alertDiv = document.getElementById('uploadResultAlert');
+    alertDiv.classList.remove('d-none');
+
+    if (data.success) {
+      alertDiv.className = 'alert alert-success mt-3';
+      alertDiv.innerHTML = `
+        <h6 class="fw-bold mb-1"><i class="bi bi-check-circle me-1"></i>Ingestion &amp; ETL Completed!</h6>
+        <div class="small">
+          Processed: <strong>${data.etl_summary.processed_records}</strong> &bull;
+          Duplicates: <strong>${data.etl_summary.duplicate_records}</strong> &bull;
+          Rejected: <strong>${data.etl_summary.rejected_records}</strong> &bull;
+          Incidents Raised: <strong class="text-danger">${data.incidents_raised}</strong>
+        </div>
+      `;
+      showToast(`Processed ${data.etl_summary.processed_records} records!`, 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      alertDiv.className = 'alert alert-danger mt-3';
+      alertDiv.innerHTML = `<strong>Error:</strong> ${data.error}`;
+      showToast(`Ingestion failed: ${data.error}`, 'danger');
+    }
+  } catch (err) {
+    showToast(`Upload error: ${err.message}`, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-play-circle me-1"></i>Start Ingestion Pipeline';
+  }
+});
+
+async function submitSingleEvent() {
+  const payloadStr = document.getElementById('singleEventPayload').value;
+  let parsed;
+  try {
+    parsed = JSON.parse(payloadStr);
+  } catch (err) {
+    showToast('Invalid JSON in payload editor', 'danger');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/logs/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(parsed)
+    });
+    const data = await res.json();
+    const resDiv = document.getElementById('singleEventResult');
+    resDiv.classList.remove('d-none');
+
+    if (data.success) {
+      resDiv.className = 'alert alert-success mt-3 small';
+      resDiv.innerHTML = `Event ingested! Incidents flagged: <strong>${data.incidents_raised}</strong>`;
+      showToast('API Event ingested successfully!', 'success');
+      setTimeout(() => window.location.reload(), 1200);
+    } else {
+      resDiv.className = 'alert alert-danger mt-3 small';
+      resDiv.innerText = `Ingestion error: ${data.error}`;
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'danger');
+  }
+}
+
+function resetSampleStreamPayload() {
+  document.getElementById('singleEventPayload').value = JSON.stringify({
+    eventID: `stream-${Date.now()}`,
+    eventTime: new Date().toISOString(),
+    eventName: "StopLogging",
+    eventSource: "cloudtrail.amazonaws.com",
+    awsRegion: "us-east-1",
+    sourceIPAddress: "198.51.100.44",
+    userIdentity: { type: "IAMUser", userName: "compromised.admin" },
+    requestParameters: { name: "arn:aws:cloudtrail:us-east-1:123456789012:trail/prod-audit" }
+  }, null, 2);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}CloudSentinel AI - Security Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h2 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-info me-2"></i>Security Monitoring Dashboard</h2>
+    <p class="text-secondary mb-0 small">Real-time CloudTrail analytics, ML anomaly scoring, and active threat posture.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-cyber-outline btn-sm" onclick="initDashboardCharts(); showToast('Dashboard refreshed', 'info');">
+      <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+    </button>
+    <a href="/ingestion" class="btn btn-cyber-primary btn-sm">
+      <i class="bi bi-cloud-arrow-up me-1"></i>Upload Logs
+    </a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val" id="kpi-total-events">--</div>
+        <div class="stat-label">Events Processed</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(79, 172, 254, 0.15); color: #4facfe;">
+        <i class="bi bi-database-check"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-danger" id="kpi-total-anomalies">--</div>
+        <div class="stat-label">Anomalies Detected</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(255, 23, 68, 0.15); color: #ff1744;">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-warning" id="kpi-critical-high">--</div>
+        <div class="stat-label">Critical &amp; High Threats</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(255, 171, 0, 0.15); color: #ffab00;">
+        <i class="bi bi-shield-slash-fill"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div>
+        <div class="stat-val text-info" id="kpi-open-incidents">--</div>
+        <div class="stat-label">Open Triage Incidents</div>
+      </div>
+      <div class="stat-icon" style="background: rgba(0, 242, 254, 0.15); color: #00f2fe;">
+        <i class="bi bi-list-task"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visualizations Row -->
+<div class="row g-4 mb-4">
+  <!-- Severity Breakdown -->
+  <div class="col-lg-4">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-pie-chart text-info me-2"></i>Severity Distribution</h6>
+      </div>
+      <div class="cyber-card-body d-flex flex-column align-items-center justify-content-center" style="min-height: 280px;">
+        <div style="position: relative; height: 230px; width: 100%;">
+          <canvas id="severityChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trends Over Time -->
+  <div class="col-lg-8">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-graph-up text-info me-2"></i>Event Volume &amp; Threat Detection Trends</h6>
+      </div>
+      <div class="cyber-card-body" style="min-height: 280px;">
+        <div style="position: relative; height: 230px; width: 100%;">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Suspicious Event Categories -->
+  <div class="col-lg-6">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-bar-chart text-info me-2"></i>Top Suspicious Event Categories</h6>
+      </div>
+      <div class="cyber-card-body" style="min-height: 250px;">
+        <div style="position: relative; height: 210px; width: 100%;">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Operational Engine Status Panels -->
+  <div class="col-lg-6">
+    <div class="cyber-card h-100">
+      <div class="cyber-card-header">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-hdd-network text-info me-2"></i>Core Subsystem Operational Status</h6>
+      </div>
+      <div class="cyber-card-body">
+        <div class="d-flex flex-column gap-3">
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold text-info"><i class="bi bi-funnel me-1"></i>Data Engineering Pipeline</span>
+              <span class="badge bg-success bg-opacity-25 text-success">Active (Pandas &amp; PySpark)</span>
+            </div>
+            <div class="text-secondary small" id="status-etl-text">Awaiting log stream ingestion...</div>
+          </div>
+
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold text-warning"><i class="bi bi-cpu me-1"></i>Machine Learning (Isolation Forest)</span>
+              <span class="badge bg-success bg-opacity-25 text-success" id="status-ml-badge">Ready</span>
+            </div>
+            <div class="text-secondary small" id="status-ml-text">Contamination: 0.08 &bull; Threshold: 0.65 &bull; Scikit-learn</div>
+          </div>
+
+          <div class="p-3 rounded" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold text-primary"><i class="bi bi-robot me-1"></i>GenAI Assistant &amp; Vector Index</span>
+              <span class="badge bg-info bg-opacity-25 text-info">FAISS Active</span>
+            </div>
+            <div class="text-secondary small" id="status-rag-text">FAISS Index &bull; Curated AWS Security Playbooks &bull; Fallback Demo Mode</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Suspicious Activities Table -->
+<div class="row g-4">
+  <div class="col-12">
+    <div class="cyber-card">
+      <div class="cyber-card-header">
+        <div class="d-flex align-items-center gap-2">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-shield-exclamation text-danger me-2"></i>Recent Flagged Threats</h5>
+          <span class="badge bg-danger bg-opacity-25 text-danger" id="badge-recent-count">0 Detected</span>
+        </div>
+        <a href="/threats" class="btn btn-cyber-outline btn-sm">View All Threats &rarr;</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-cyber" id="table-recent-threats">
+          <thead>
+            <tr>
+              <th>Incident Code</th>
+              <th>Severity</th>
+              <th>Threat Title</th>
+              <th>Principal</th>
+              <th>Source IP</th>
+              <th>ML Anomaly Score</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-recent-threats">
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">
+                <i class="bi bi-arrow-repeat spin me-2"></i>Loading live threats from database...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+// Dynamic Dashboard Data Fetcher
+async function updateDashboardData() {
+  try {
+    const res = await fetch('/api/dashboard/stats');
+    const data = await res.json();
+    if (!data.success) return;
+
+    // Update KPI numbers
+    document.getElementById('kpi-total-events').innerText = data.total_events;
+    document.getElementById('kpi-total-anomalies').innerText = data.total_anomalies;
+    
+    const critHigh = (data.severity_counts.CRITICAL || 0) + (data.severity_counts.HIGH || 0);
+    document.getElementById('kpi-critical-high').innerText = critHigh;
+    document.getElementById('kpi-open-incidents').innerText = (data.status_counts.Open || 0) + (data.status_counts.Investigating || 0);
+
+    // Update Subsystems Text
+    if (data.etl_status.last_run) {
+      const lr = data.etl_status.last_run;
+      document.getElementById('status-etl-text').innerText = 
+        `Last run: ${lr.created_at} (${lr.processed_records} processed, ${lr.duplicate_records} duplicates, ${lr.rejected_records} rejected)`;
+    }
+
+    if (data.model_status) {
+      const ms = data.model_status;
+      document.getElementById('status-ml-badge').innerText = ms.is_ready ? 'Trained & Operational' : 'Ready (Default)';
+      document.getElementById('status-ml-text').innerText = 
+        `Samples: ${ms.training_metadata?.sample_count || '15+'} | Features: 10 dimensions | Threshold: ${ms.anomaly_threshold}`;
+    }
+
+    // Populate Recent Threats Table
+    const tbody = document.getElementById('tbody-recent-threats');
+    document.getElementById('badge-recent-count').innerText = `${data.recent_incidents.length} Flagged`;
+
+    if (data.recent_incidents.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            No threats detected yet. Click "Load Demonstration Data" in the top bar to ingest sample CloudTrail events.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = data.recent_incidents.map(inc => {
+      const sevClass = inc.severity === 'CRITICAL' ? 'badge-critical' : inc.severity === 'HIGH' ? 'badge-high' : inc.severity === 'MEDIUM' ? 'badge-medium' : 'badge-low';
+      const statusClass = inc.status === 'Open' ? 'badge-open' : inc.status === 'Investigating' ? 'badge-investigating' : inc.status === 'Resolved' ? 'badge-resolved' : 'badge-false-positive';
+      return `
+        <tr>
+          <td><code class="cyber-code">${inc.incident_code}</code></td>
+          <td><span class="badge ${sevClass}">${inc.severity}</span></td>
+          <td><strong>${inc.title}</strong></td>
+          <td><span class="text-secondary">${inc.principal}</span></td>
+          <td><code class="cyber-code">${inc.source_ip}</code></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-bold text-danger">${inc.ml_anomaly_score}</span>
+              <div class="progress flex-grow-1" style="height: 6px; background: rgba(255,255,255,0.08); width: 60px;">
+                <div class="progress-bar bg-danger" style="width: ${inc.ml_anomaly_score * 100}%"></div>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge ${statusClass}">${inc.status}</span></td>
+          <td>
+            <a href="/incident/${inc.id}" class="btn btn-cyber-outline btn-sm py-1 px-2" title="Investigate Incident">
+              <i class="bi bi-search"></i> Inspect
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Error updating dashboard stats:', err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', updateDashboardData);
+</script>
+{% endblock %}
